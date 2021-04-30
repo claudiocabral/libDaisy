@@ -209,7 +209,7 @@ set_target_properties(${TARGET} PROPERTIES
       -Wno-maybe-uninitialized
       -Wno-missing-attributes
       -Wno-stringop-overflow
-      $<$<COMPILE_LANGUAGE:CXX>:-Wno-register>
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-register -Wno-volatile>
       )
 
   target_compile_definitions(${TARGET} PUBLIC
