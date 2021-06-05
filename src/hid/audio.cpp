@@ -32,7 +32,8 @@ class AudioHandle::Impl
     AudioHandle::Result Init(const AudioHandle::Config config, SaiHandle sai);
     AudioHandle::Result
                         Init(const AudioHandle::Config config, SaiHandle sai1, SaiHandle sai2);
-    AudioHandle::Result Start(AudioHandle::AudioCallback callback);
+    AudioHandle::Result Start(void *callback,
+                              AudioHandle::AudioCallbackConverter to_audio_callback);
     AudioHandle::Result Start(AudioHandle::InterleavingAudioCallback callback);
     AudioHandle::Result Stop();
     AudioHandle::Result ChangeCallback(AudioHandle::AudioCallback callback);
@@ -74,6 +75,8 @@ class AudioHandle::Impl
     static void InternalCallback(int32_t* in, int32_t* out, size_t size);
 
     void *callback_, *interleaved_callback_;
+    AudioHandle::AudioCallbackConverter to_audio_callback_;
+    AudioHandle::InterleavingAudioCallbackConverter to_interleaving_audio_callback_;
 
     // Data
     AudioHandle::Config config_;
@@ -130,7 +133,7 @@ AudioHandle::Result AudioHandle::Impl::Init(const AudioHandle::Config config,
 }
 
 AudioHandle::Result
-AudioHandle::Impl::Start(AudioHandle::AudioCallback callback)
+AudioHandle::Impl::Start(void* callback, AudioHandle::AudioCallbackConverter to_audio_callback)
 {
     // Get instance of object
     if(sai2_.IsInitialized())
@@ -142,8 +145,9 @@ AudioHandle::Impl::Start(AudioHandle::AudioCallback callback)
     sai1_.StartDma(buff_rx_[0],
                    buff_tx_[0],
                    config_.blocksize * 2 * 2,
-                   audio_handle.InternalCallback);
-    callback_             = (void*)callback;
+                   AudioHandle::Impl::InternalCallback);
+    callback_             = callback;
+    to_audio_callback_    = to_audio_callback;
     interleaved_callback_ = nullptr;
     return Result::OK;
 }
@@ -155,7 +159,7 @@ AudioHandle::Impl::Start(AudioHandle::InterleavingAudioCallback callback)
     sai1_.StartDma(buff_rx_[0],
                    buff_tx_[0],
                    config_.blocksize * 2 * 2,
-                   audio_handle.InternalCallback);
+                   AudioHandle::Impl::InternalCallback);
     interleaved_callback_ = (void*)callback;
     callback_             = nullptr;
     return Result::OK;
@@ -313,7 +317,7 @@ void AudioHandle::Impl::InternalCallback(int32_t* in, int32_t* out, size_t size)
     }
     else if(audio_handle.callback_)
     {
-        AudioCallback cb = (AudioCallback)audio_handle.callback_;
+        auto cb = audio_handle.to_audio_callback_;
         // offset needed for 2nd audio codec.
         size_t offset    = audio_handle.sai2_.GetOffset();
         size_t buff_size = chns > 2 ? size * 2 : size;
@@ -387,7 +391,7 @@ void AudioHandle::Impl::InternalCallback(int32_t* in, int32_t* out, size_t size)
                 break;
             default: break;
         }
-        cb(fin, fout, size / 2);
+        cb(fin, fout, size / 2, audio_handle.callback_);
         // Reinterleave and scale
         switch(bd)
         {
@@ -489,9 +493,9 @@ AudioHandle::SetSampleRate(SaiHandle::Config::SampleRate samplerate)
     return pimpl_->SetSampleRate(samplerate);
 }
 
-AudioHandle::Result AudioHandle::Start(AudioCallback callback)
+AudioHandle::Result AudioHandle::StartImpl(void * callback)
 {
-    return pimpl_->Start(callback);
+    return pimpl_->Start(callback, to_audio_callback);
 }
 
 AudioHandle::Result AudioHandle::Start(InterleavingAudioCallback callback)

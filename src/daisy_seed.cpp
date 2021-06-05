@@ -141,6 +141,7 @@ void DaisySeed::DelayMs(size_t del)
     system.Delay(del);
 }
 
+/*
 void DaisySeed::StartAudio(AudioHandle::InterleavingAudioCallback cb)
 {
     audio_handle.Start(cb);
@@ -150,6 +151,7 @@ void DaisySeed::StartAudio(AudioHandle::AudioCallback cb)
 {
     audio_handle.Start(cb);
 }
+*/
 
 void DaisySeed::ChangeAudioCallback(AudioHandle::InterleavingAudioCallback cb)
 {

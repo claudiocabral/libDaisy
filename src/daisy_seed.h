@@ -61,14 +61,19 @@ class DaisySeed
     the specified callback will get called whenever
     new data is ready to be prepared.
     */
-    void StartAudio(AudioHandle::InterleavingAudioCallback cb);
+    //void StartAudio(AudioHandle::InterleavingAudioCallback cb);
 
     /** Begins the audio for the seeds builtin audio.
     the specified callback will get called whenever
     new data is ready to be prepared.
     This will use the newer non-interleaved callback.
     */
-    void StartAudio(AudioHandle::AudioCallback cb);
+    template <class T>
+    void StartAudio(T cb)
+    {
+        //auto c = [](const float * const *, float **, size_t) {};
+        audio_handle.Start(cb);
+    }
 
     /** Changes to a new interleaved callback
      */

@@ -2,6 +2,7 @@
 #define DSY_AUDIO_H /**< & */
 
 #include "per/sai.h"
+#include <type_traits>
 
 namespace daisy
 {
@@ -27,17 +28,17 @@ class AudioHandle
      * Buffer arranged by float[chn][sample] 
      * const so that the user can't modify the input
     */
-    typedef const float* const* InputBuffer;
+    using InputBuffer = const float* const*;
 
     /** Non-Interleaving output buffer
      * Arranged by float[chn][sample] 
     */
-    typedef float** OutputBuffer;
+    using OutputBuffer = float**;
 
     /** Type for a Non-Interleaving audio callback 
    * Non-Interleaving audio callbacks in daisy will be of this type
   */
-    typedef void (*AudioCallback)(InputBuffer  in,
+    using AudioCallback = void (*)(InputBuffer  in,
                                   OutputBuffer out,
                                   size_t       size);
 
@@ -45,19 +46,24 @@ class AudioHandle
      ** audio is prepared as { L0, R0, L1, R1, . . . LN, RN }]
      ** this is const, as the user shouldn't modify it
     */
-    typedef const float* InterleavingInputBuffer;
+    using InterleavingInputBuffer = const float*;
 
     /** Interleaving Output buffer 
      ** audio is prepared as { L0, R0, L1, R1, . . . LN, RN }
     */
-    typedef float* InterleavingOutputBuffer;
+    using InterleavingOutputBuffer = float*;
 
     /** Interleaving Audio Callback 
    * Interleaving audio callbacks in daisy must be of this type
   */
-    typedef void (*InterleavingAudioCallback)(InterleavingInputBuffer  in,
+    using InterleavingAudioCallback = void (*)(InterleavingInputBuffer  in,
                                               InterleavingOutputBuffer out,
                                               size_t                   size);
+    using AudioCallbackConverter = void (*)(InputBuffer, OutputBuffer, size_t, void *);
+    using InterleavingAudioCallbackConverter = InterleavingAudioCallback (*)( void *);
+
+    AudioCallbackConverter to_audio_callback;
+    InterleavingAudioCallbackConverter to_interleaving_audio_callback;
 
     AudioHandle() : pimpl_(nullptr) {}
     ~AudioHandle() {}
@@ -101,7 +107,14 @@ class AudioHandle
     Result SetPostGain(float val);
 
     /** Starts the Audio using the non-interleaving callback. */
-    Result Start(AudioCallback callback);
+    template <class T>
+    Result Start(T callback)
+    {
+        //std::is_invocable_v<T, InputBuffer, OutputBuffer, size_t>, int> = 0>
+        static_assert(std::is_pointer_v<T>, "T should be a pointer");
+        to_audio_callback = +[](InputBuffer input, OutputBuffer output, size_t size, void *cb) { (*(T)cb)(input, output, size); };
+        return StartImpl(static_cast<void *>(&callback));
+    }
 
     /** Starts the Audio using the interleaving callback. 
      ** For now only two channels are supported via this method. 
@@ -121,6 +134,7 @@ class AudioHandle
     class Impl;
 
   private:
+    Result StartImpl(void * callback);
     Impl* pimpl_;
 };
 
